@@ -1,0 +1,206 @@
+---
+title: "ShilpiSharma_Aug_SVAP_Asmt_R2"
+author: "Shilpi Sharma"
+date: "10/8/2017"
+output:
+  pdf_document: default
+  html_document: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Domain - Employment (People)
+### Topic - Unemployment Analysis and Comparison at the country and gender level
+
+```{r}
+# Loading required libraries
+library(rvest)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(pander)
+library(tidyverse)
+library(readxl)
+library(stringr)
+library(RColorBrewer)
+library(lattice)
+library(reshape2)
+library(gridExtra)
+```
+
+## Frame the questions
+- Which are the top 10 countries with the highest unemployment ratio of males to females for both the timeframes 1991 and 2016?
+- Which country has the highest takers of intermediate and advanced education in 2016?
+
+
+## Acquire the Data
+Getting the unemployment data for different countries from the World Bank database 
+
+```{r}
+setwd("/Users/shilpisharma/SVAPData")
+getwd()
+UData=read_excel("Unemployment.xls")
+summary(UData)
+attach(UData)
+str(UData)
+```
+
+## Refine the Data
+- Check for Quality and Consistency
+- Missing values
+- Outlier treatment
+- Remove unneeded
+- Format Data Types
+
+### Changing Column Names to shorter names
+```{r}
+dim(UData)
+column_name <- c('country', 'maleUnempt91', 'maleUnempt16', 'femaleUnempt91', 'femaleUnempt16', 'maleYouthUnempt91', 'maleYouthUnempt16', 'femaleYouthUnempt91', 'femaleYouthUnempt16', 'basicEduPct', 'intermediateEduPct', 'advancedEduPct')
+colnames(UData) <- column_name
+str(UData)
+```
+
+### Change the data types from chr to numeric and date
+```{r}
+head(UData)
+tail(UData)
+# Coercing all the columns datatype except Country from chr to numeric -> NAs introduced
+UData$maleUnempt91 <- as.numeric(UData$maleUnempt91)
+UData$maleUnempt16 <- as.numeric(UData$maleUnempt16)
+UData$femaleUnempt91 <- as.numeric(UData$femaleUnempt91)
+UData$femaleUnempt16 <- as.numeric(UData$femaleUnempt16)
+UData$maleYouthUnempt91 <- as.numeric(UData$maleYouthUnempt91)
+UData$maleYouthUnempt16 <- as.numeric(UData$maleYouthUnempt16)
+UData$femaleYouthUnempt91 <- as.numeric(UData$femaleYouthUnempt91)
+UData$femaleYouthUnempt16 <- as.numeric(UData$femaleYouthUnempt16)
+UData$basicEduPct <- as.numeric(UData$basicEduPct)
+UData$intermediateEduPct <- as.numeric(UData$intermediateEduPct)
+UData$advancedEduPct <- as.numeric(UData$advancedEduPct)
+tail(UData)
+```
+
+### Filter all the rows except the last four rows 
+```{r}
+df <- UData %>% filter(row_number() < 223) 
+tail(df)
+# Removing the special characters in Korea country field
+df <- df %>% within(country[str_detect(country, 'Korea, Dem+')] <- 'Korea Dem.')
+tail(df)
+```
+
+## Transform the Data
+### First Question - Finding the top 10 countries with the highest unemployment ratio of males to females
+```{r}
+# Calculating for 1991 data
+uemptRatio91 = df$maleUnempt91/df$femaleUnempt91 
+df <- cbind(df, uemptRatio91)
+str(df)
+dfUemptRatio91 <- df %>% arrange(desc(uemptRatio91)) %>% head(10)
+
+# Calculating for 2016 data
+uemptRatio16 = df$maleUnempt16/df$femaleUnempt16 
+df <- cbind(df, uemptRatio16)
+str(df)
+dfUemptRatio91 <- df %>% arrange(desc(uemptRatio91)) %>% head(10)
+dfUemptRatio16 <- df %>% arrange(desc(uemptRatio16)) %>% head(10)
+```
+
+### Solution : Uganda had the highest unemployment ratio of males to females in 1991 but it moved down to spot 10 in 2016, whereas Sierra has the highest unemployement ratio in 2016.  
+
+## Explore - Visualize 
+### Depicting through Bar Graph
+```{r}
+# Depicting 1991 data through Bar Graph
+ggplot(dfUemptRatio91) + 
+  aes(reorder(country, uemptRatio91), uemptRatio91, fill=country) + 
+  geom_col(width = 1) + xlab("Country") + ylab("Unemployment Ratio - Males to Females") +
+  coord_flip()
+
+# Depicting 2016 data through Bar Graph
+ggplot(dfUemptRatio16) + 
+  aes(reorder(country, uemptRatio16), uemptRatio16, fill=country) + 
+  geom_col(width = 1) + xlab("Country") + ylab("Unemployment Ratio - Males to Females") +
+  coord_flip()
+```
+
+### Depicting through pie charts
+```{r}
+# Plotting 1991 data on a pie chart
+plot1 <- ggplot(dfUemptRatio91, facets = ~mygroup) + 
+  aes(reorder(country, uemptRatio91), uemptRatio91, fill=country) + 
+  geom_col(width = 1) + xlab("Country") + ylab("Unemployment Ratio - Males to Females (1991)") +
+  coord_flip() + 
+  coord_polar()  
+
+# Plotting 2016 data on a pie chart
+plot2 <- ggplot(dfUemptRatio16, facets = ~mygroup) + 
+  aes(reorder(country, uemptRatio16), uemptRatio16, fill=country) + 
+  geom_col(width = 1) + xlab("Country") + ylab("Unemployment Ratio - Males to Females (2016)") +
+  coord_flip() + 
+  coord_polar()
+
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+### Depicting both the 1991 and 2016 unemployment ratio data through same Scatter Plot 
+```{r}
+# Depicting 1991 data through Scatter Plot 
+ggplot(dfUemptRatio91) + 
+  aes(country, uemptRatio91) + 
+  geom_point()
+
+# Depicting 2016 data through Scatter Plot 
+ggplot(dfUemptRatio16) + 
+  aes(country, uemptRatio16) + 
+  geom_point()
+
+# Depicting both timeframes in the same scatter plot
+# Combining the 1991 and 2016 ratio data frames
+d <- rbind(dfUemptRatio91, dfUemptRatio16)
+# Removing duplicate rows
+d <- unique(d)
+# Extracting the columns of interest
+d1 <- as.data.frame(cbind(country=d$country, U2016=d$uemptRatio16, U1991=d$uemptRatio91))
+str(d1)
+# Transposing the data from wide to long format
+df2 <- melt(data = d1, id = "country")
+# Renaming the variable column name to Year
+colnames(df2)[colnames(df2) == 'variable'] <- 'Year'
+# Plotting on a scatter plot
+ggplot(data = df2, aes(x = country, y = value, colour = Year, group = 1)) + geom_point() + xlab("Country") + ylab("Unemployment Ratio of Males to Females") + scale_x_discrete(labels = abbreviate) 
+```
+
+## Second Question - Which country has the highest takers of intermediate and advanced education in 2016?
+### Stacked Bar Plot with Colors and Legend
+```{r}
+# Extracting the required education indicator columns from the cleansed data frame
+percents <- as.data.frame(cbind(country = df$country, intermediateEducation = df$intermediateEduPct, advancedEducation = df$advancedEduPct))
+# Removing the NAs
+percents <- subset(percents, !is.na(intermediateEducation) & !is.na(advancedEducation))
+# Getting the top 10 intermediate education takers
+topIntermediate <- percents %>% arrange(desc(intermediateEducation)) %>% head(10)
+# Getting the top 10 advanced education takers
+topAdvanced <- percents %>% arrange(desc(advancedEducation)) %>% head(10)
+# Combining the Intermediate top ten and Advanced top ten data
+combinedEduData <- unique(rbind(topIntermediate, topAdvanced))
+str(combinedEduData)
+summary(combinedEduData)
+# Depicting through stacked bar chart
+# Transposing the data from wide to long format
+df3 <- melt(data = combinedEduData, id = "country")
+# Renaming the variable column name to Education Type
+colnames(df3)[colnames(df3) == 'variable'] <- 'EducationType'
+ggplot(df3, aes(x=country)) + geom_bar(aes(fill = EducationType)) + xlab("Country") + 
+  ylab("Percentage Distribution of Intermediate and Advanced education takers") + coord_flip()
+```
+
+### Conclusion - Insights gained
+* Uganda has the highest disproportion between males and females with males being more unemployed in 1991 timeframe. 
+* Uganda reduced this ratio from 2.16 to 1.42 in 2016.
+* Sierra Leone had the highest unemployment ratio of males to females in 2016.
+* Brazil has highest number of people completing intermediate education.
+* Croatia has the highest number of people completing the advanced education.
+
